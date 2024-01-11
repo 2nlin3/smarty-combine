@@ -18,7 +18,7 @@
  *
  * @author Gorochov Ivan <dead23angel at gmail dot com>
  * @author Vital Smereka <vds911 at yandex dot com>
- * @version 1.3
+ * @version 1.4
  * @param array
  * @param string
  * @param int
@@ -47,13 +47,13 @@ function smarty_function_combine($params, &$smarty)
                 $filelist[] = array('name' => $item, 'time' => $mtime);
             }
 
-            if ($params['debug'] == true) {
+            if ($params['debug'] === true) {
                 $output_filename = '';
                 foreach ($filelist as $file) {
                     if ($params['type'] == 'js') {
-                        $output_filename .= '<script type="text/javascript" src="' . base_url() . $file['name'].'" charset="utf-8"></script>' . "\n";
+                        $output_filename .= '<script type="text/javascript" src="' . base_url() . $file['name'] . '?' . $file['time'] . '" charset="utf-8"></script>' . "\n";
                     } elseif ($params['type'] == 'css') {
-                        $output_filename .= '<link type="text/css" rel="stylesheet" href="' . base_url() . $file['name'] . '" />' . "\n";
+                        $output_filename .= '<link type="text/css" rel="stylesheet" href="' . base_url() . $file['name'] . '?' . $file['time'] . '" />' . "\n";
                     }
                 }
 
@@ -84,6 +84,8 @@ function smarty_function_combine($params, &$smarty)
                 if ( ! is_dir($dirname)) {
                     mkdir($dirname, 0755, true);
                 }
+
+				$sleep = checkWritabeFile($params['file_path'] . $output_filename);
 
                 $fh = fopen($params['file_path'] . $output_filename, 'w');
 
@@ -230,6 +232,8 @@ function smarty_function_combine($params, &$smarty)
     if ( ! function_exists('build_cache_combine')) {
         function build_cache_combine($params){
 			register_shutdown_function(function($params){
+				ignore_user_abort(true);
+
 				if (function_exists('fastcgi_finish_request')) {
 					fastcgi_finish_request();
 				}
@@ -243,8 +247,10 @@ function smarty_function_combine($params, &$smarty)
 
     $cache_mtime = $file_cache_exists ? filemtime($params['file_path'] . $params['cache_file_name']) : 0;
 
-    if ($params['debug'] == true || ! $file_cache_exists) {
-		if($cache_mtime + $params['age'] < time()) {
+    if ($params['debug'] === true || !$file_cache_exists) {
+		$time = time();
+
+		if($cache_mtime + $params['age'] < $time) {
             $filelist = array();
 
             foreach ($params['input'] as $item) {
@@ -254,9 +260,9 @@ function smarty_function_combine($params, &$smarty)
 			$out = '';
 			foreach ($filelist as $file) {
 				if ($params['type'] == 'js') {
-					$out .= '<script type="text/javascript" src="' . base_url() . $file['name'].'" charset="utf-8"></script>' . "\n";
+					$out .= '<script type="text/javascript" src="' . base_url() . $file['name'] . '?' . $time . '" charset="utf-8"></script>' . "\n";
 				} elseif ($params['type'] == 'css') {
-					$out .= '<link type="text/css" rel="stylesheet" href="' . base_url() . $file['name'] . '" />' . "\n";
+					$out .= '<link type="text/css" rel="stylesheet" href="' . base_url() . $file['name'] . '?' . $time . '" />' . "\n";
 				}
 			}
 
@@ -270,4 +276,23 @@ function smarty_function_combine($params, &$smarty)
     }
 
 	smarty_print_out($params);
+}
+
+function checkWritabeFile($file)
+{
+	$i = 0;
+
+	while(!is_writable($file))
+	{
+		$i++;
+
+		if($i > 5)
+		{
+			break;
+		}
+
+		sleep(rand(0,2));
+	}
+
+	return $i;
 }
